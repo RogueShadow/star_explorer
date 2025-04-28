@@ -1,0 +1,117 @@
+{
+  "entry": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "texts": [
+        {
+          "condition": "has_delivered",
+          "text": "Ah, you've delivered the package! Here's your reward."
+        },
+        {
+          "condition": "has_job",
+          "text": "Have you delivered the package yet?"
+        },
+        {
+          "condition": null,
+          "text": "Hello, I have a job for you. Deliver this package to Mars."
+        }
+      ],
+      "choices": [
+        {
+          "text": "What job?",
+          "next": "job_details",
+          "condition": "!has_job",
+          "actions": []
+        },
+        {
+          "text": "Yes, I have.",
+          "next": "confirm_delivery",
+          "condition": "has_job && has_delivered",
+          "actions": []
+        },
+        {
+          "text": "Not yet.",
+          "next": "not_yet",
+          "condition": "has_job && !has_delivered",
+          "actions": []
+        },
+        {
+          "text": "Goodbye.",
+          "next": "end",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "job_details",
+      "texts": [
+        {
+          "condition": null,
+          "text": "I need you to deliver a package to Mars."
+        }
+      ],
+      "choices": [
+        {
+          "text": "I'll do it.",
+          "next": "accept_job",
+          "condition": null,
+          "actions": ["set_flag:has_job", "set_flag:has_package"]
+        },
+        {
+          "text": "No thanks.",
+          "next": "end",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "accept_job",
+      "texts": [
+        {
+          "condition": null,
+          "text": "Great! Here's the package. Safe travels!"
+        }
+      ],
+      "choices": [],
+      "on_enter": []
+    },
+    {
+      "id": "confirm_delivery",
+      "texts": [
+        {
+          "condition": null,
+          "text": "Excellent work! Here's your reward."
+        }
+      ],
+      "choices": [],
+      "on_enter": ["remove_flag:has_job", "remove_flag:has_delivered"]
+    },
+    {
+      "id": "not_yet",
+      "texts": [
+        {
+          "condition": null,
+          "text": "Please hurry. The package is important."
+        }
+      ],
+      "choices": [],
+      "on_enter": []
+    },
+    {
+      "id": "end",
+      "texts": [
+        {
+          "condition": null,
+          "text": "See you later."
+        }
+      ],
+      "choices": [],
+      "on_enter": []
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+[package]
+name = "star_explorer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "star_explorer_lib"
+
+[dependencies.bevy]
+version = "0.15.1"
+default-features = false
+features = [
+    "animation",
+    "bevy_asset",
+    "bevy_state",
+    #"bevy_audio",
+    "bevy_color",
+    "bevy_gilrs",
+    "bevy_scene",
+    "bevy_winit",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_gltf",
+    "bevy_render",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "multi_threaded",
+    "png",
+    "hdr",
+    #"vorbis",
+    #"x11",
+    "bevy_gizmos",
+    #"android_shared_stdcxx",
+    "tonemapping_luts",
+    "smaa_luts",
+    "default_font",
+    "webgl2",
+    "sysinfo_plugin",
+    "file_watcher",
+]
+
+[dependencies]
+rand = "0.8.5"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.138"
+noise = "0.8"
+image = { version = "0.24.0", features = ["rgb"]}
+
+
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+opt-level = 3
+panic = "abort"
+strip = "symbols"
