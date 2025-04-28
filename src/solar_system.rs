@@ -1,19 +1,19 @@
-use std::f32::consts::TAU;
-use std::fs;
-use std::path::PathBuf;
+use crate::space_position::SpacePosition;
+use crate::story_system::Dialogue;
 use bevy::prelude::*;
 use bevy::render::view::NoFrustumCulling;
 use bevy::sprite::Anchor;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use crate::space_position::SpacePosition;
-use crate::story_system::{Dialogue};
+use std::f32::consts::TAU;
+use std::fs;
+use std::path::PathBuf;
 
 pub struct SolarSystemPlugin;
 
 impl Plugin for SolarSystemPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PreUpdate,update_orbitals);
+        app.add_systems(PreUpdate, update_orbitals);
     }
 }
 
@@ -75,18 +75,21 @@ pub fn load_solar_system(
             space_position.clone(),
             //text,
             Anchor::Custom(Vec2::new(0.0, 1.0)),
-            Transform::from_xyz(0.0,0.0, *layer),
+            Transform::from_xyz(0.0, 0.0, *layer),
             Visibility::Visible,
             BodySize(config.size),
             NoFrustumCulling,
         ))
         .id();
-    let path = format!("assets/dialogue/{}.json",&config.name.to_lowercase());
-    if std::fs::metadata(&path).is_ok() {
+    let path = format!("assets/dialogue/{}.json", &config.name.to_lowercase());
+    if fs::metadata(&path).is_ok() {
         let dialogue: Dialogue = serde_json::from_str(
-            fs::read_to_string(path).expect("Couldn't read file.").as_str()
-        ).expect("Couldn't form the Dialogue");
-        println!("Loaded dialogue for {}\n {:?}",&config.name,&dialogue);
+            fs::read_to_string(path)
+                .expect("Couldn't read a file.")
+                .as_str(),
+        )
+        .expect("Couldn't form the Dialogue");
+        println!("Loaded dialogue for {}\n {:?}", &config.name, &dialogue);
         commands.entity(entity).insert(dialogue);
     }
     match (config.tint, config.image.clone()) {
@@ -106,14 +109,14 @@ pub fn load_solar_system(
         (Some(tint), None) => {
             commands.entity(entity).insert((
                 Mesh2d(meshes.add(Circle::new(config.size))),
-                MeshMaterial2d(materials.add(ColorMaterial::from_color(tint)))
+                MeshMaterial2d(materials.add(ColorMaterial::from_color(tint))),
             ));
         }
         (None, None) => {
             let mut rng = rand::thread_rng();
             commands.entity(entity).insert((
                 Mesh2d(meshes.add(Circle::new(config.size))),
-                MeshMaterial2d(materials.add(ColorMaterial::from_color(rand_color(&mut rng))))
+                MeshMaterial2d(materials.add(ColorMaterial::from_color(rand_color(&mut rng)))),
             ));
         }
     };
@@ -139,15 +142,15 @@ pub fn load_solar_system(
 }
 
 pub fn update_orbitals(
-    parents: Query<((&SpacePosition,&BodySize), Option<&Children>)>,
-    children: Query<(&OrbitalBody,&BodySize)>,
+    parents: Query<((&SpacePosition, &BodySize), Option<&Children>)>,
+    children: Query<(&OrbitalBody, &BodySize)>,
     time: Res<Time>,
     mut commands: Commands,
 ) {
     for ((SpacePosition(pos), BodySize(size)), maybe_children) in parents.iter() {
         if let Some(children_entities) = maybe_children {
             for &child_entity in children_entities.iter() {
-                if let Ok((orbital_body , BodySize(child_size))) = children.get(child_entity) {
+                if let Ok((orbital_body, BodySize(child_size))) = children.get(child_entity) {
                     let speed = if let Some(period) = orbital_body.period {
                         TAU / period
                     } else {
@@ -155,8 +158,12 @@ pub fn update_orbitals(
                     };
                     let elapsed_time = (time.elapsed_secs() * speed) + orbital_body.start;
                     let new_position = Vec2::new(
-                        pos.x + elapsed_time.cos() * (orbital_body.distance + (size + child_size) * 2.0),
-                        pos.y + elapsed_time.sin() * (orbital_body.distance + (size + child_size) * 2.0),
+                        pos.x
+                            + elapsed_time.cos()
+                                * (orbital_body.distance + (size + child_size) * 2.0),
+                        pos.y
+                            + elapsed_time.sin()
+                                * (orbital_body.distance + (size + child_size) * 2.0),
                     );
                     commands
                         .entity(child_entity)

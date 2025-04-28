@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use crate::input_actions::ActionState;
+use crate::solar_system::SolarBody;
+use crate::GameActions;
 use bevy::math::Vec2;
 use bevy::prelude::*;
-use crate::GameActions;
-use crate::input_actions::{ActionState};
-use crate::solar_system::SolarBody;
+use std::collections::HashMap;
 
 pub struct NavigationSystemPlugin;
 
@@ -14,7 +14,7 @@ impl Plugin for NavigationSystemPlugin {
     }
 }
 
-#[derive(Resource,Default)]
+#[derive(Resource, Default)]
 pub struct NavigationUI {
     pub show: bool,
 }
@@ -23,7 +23,7 @@ pub struct NavigationUI {
 pub struct NavMarker(Entity);
 
 fn point_at_nearby_bodies(
-    bodies_query: Query<(Entity,&GlobalTransform, &SolarBody)>,
+    bodies_query: Query<(Entity, &GlobalTransform, &SolarBody)>,
     window: Single<&Window>,
     mut commands: Commands,
     mut nav_markers: Query<(Entity, &mut Transform, &NavMarker)>,
@@ -32,10 +32,10 @@ fn point_at_nearby_bodies(
 ) {
     if actions.just_pressed(GameActions::ToggleNavMarkers) {
         nav_ui.show = !nav_ui.show;
-    } 
-    
-    if nav_ui.show{
-        for (nav_entity,_,_) in nav_markers.iter_mut() {
+    }
+
+    if nav_ui.show {
+        for (nav_entity, _, _) in nav_markers.iter_mut() {
             commands.entity(nav_entity).despawn();
         }
         return;
@@ -44,15 +44,16 @@ fn point_at_nearby_bodies(
     let half_width = screen.x * 0.5;
     let half_height = screen.y * 0.5;
 
-    let mut used_markers: HashMap<Entity,Entity> = HashMap::new();
+    let mut used_markers: HashMap<Entity, Entity> = HashMap::new();
 
     for (entity, trans, body) in bodies_query.iter() {
         let position = trans.translation().xy();
         if position.x.abs() > half_width || position.y.abs() > half_height {
             let direction = position.normalize_or_zero();
             if direction.is_finite() {
-                let mut edge_point = calculate_screen_edge_point(direction, half_width, half_height);
-                let name = &body.name ;
+                let mut edge_point =
+                    calculate_screen_edge_point(direction, half_width, half_height);
+                let name = &body.name;
                 let half_width = name.len() as f32 * 6.5;
                 edge_point.y -= direction.y.signum() * 9.0;
                 edge_point.x -= direction.x.signum() * half_width;
@@ -62,11 +63,11 @@ fn point_at_nearby_bodies(
                     if nav_marker.0 == entity {
                         marker_found = true;
                         *nav_transform = Transform::from_translation(edge_point.extend(10.0));
-                        used_markers.insert(entity,nav_entity);
+                        used_markers.insert(entity, nav_entity);
                         break;
                     }
                 }
-                if !marker_found  {
+                if !marker_found {
                     commands.spawn((
                         Text2d(name.to_owned()),
                         Transform::from_translation(edge_point.extend(10.0)),

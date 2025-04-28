@@ -1,13 +1,14 @@
-use std::collections::VecDeque;
 use bevy::prelude::*;
-use crate::GameActions;
-use crate::input_actions::ActionState;
+use std::collections::VecDeque;
 
 pub struct NotificationSystemPlugin;
 
 impl Plugin for NotificationSystemPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource( Notifications {messages: VecDeque::new(), displayed: None });
+        app.insert_resource(Notifications {
+            messages: VecDeque::new(),
+            displayed: None,
+        });
     }
 }
 
@@ -40,15 +41,11 @@ pub struct Notification {
 }
 
 fn notification_system(
-    mut commands: Commands,
     mut notifications: ResMut<Notifications>,
-    actions: ActionState<GameActions>,
 ) {
     if notifications.has_next() {
         notifications.next();
     }
-    
-    if notifications.displayed.is_some() {
-        
-    }
+
+    if notifications.displayed.is_some() {}
 }

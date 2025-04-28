@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
+use std::collections::HashMap;
 
 pub struct GameActionsPlugin<T: Eq + std::hash::Hash + Clone + Send + Sync + 'static> {
     _phantom: std::marker::PhantomData<T>,
@@ -22,7 +22,7 @@ impl<T: Eq + std::hash::Hash + Clone + Send + Sync + 'static> Plugin for GameAct
             just_released: vec![],
             map: HashMap::default(),
         });
-        app.add_systems(PreUpdate,get_actions_from_input::<T>);
+        app.add_systems(PreUpdate, get_actions_from_input::<T>);
     }
 }
 
@@ -31,24 +31,25 @@ pub struct ActionState<T> {
     pressed: Vec<T>,
     just_pressed: Vec<T>,
     just_released: Vec<T>,
-    map: HashMap<T,Vec<KeyCode>>,
+    map: HashMap<T, Vec<KeyCode>>,
 }
-impl <T: PartialEq + Send + Sync + 'static + Clone>ActionState<T> {
-    pub fn set_binds(&mut self, binds: HashMap<T,Vec<KeyCode>>) {
+#[allow(dead_code)]
+impl<T: PartialEq + Send + Sync + 'static + Clone> ActionState<T> {
+    pub fn set_binds(&mut self, binds: HashMap<T, Vec<KeyCode>>) {
         self.map = binds;
     }
-    pub fn pressed(&self,action: T) -> bool {
+    pub fn pressed(&self, action: T) -> bool {
         self.pressed.contains(&action)
     }
-    pub fn just_pressed(&self,action: T) -> bool {
+    pub fn just_pressed(&self, action: T) -> bool {
         self.just_pressed.contains(&action)
     }
-    pub fn just_released(&self,action: T) -> bool {
+    pub fn just_released(&self, action: T) -> bool {
         self.just_released.contains(&action)
     }
 }
 
-pub fn get_actions_from_input<T: Eq + std::hash::Hash + Clone + Send + Sync + 'static> (
+pub fn get_actions_from_input<T: Eq + std::hash::Hash + Clone + Send + Sync + 'static>(
     key: Res<ButtonInput<KeyCode>>,
     mut actions: ResMut<ActionState<T>>,
 ) {
@@ -57,7 +58,7 @@ pub fn get_actions_from_input<T: Eq + std::hash::Hash + Clone + Send + Sync + 's
     actions.just_pressed.clear();
 
     let map = actions.map.clone();
-    for (action,keys) in map.iter() {
+    for (action, keys) in map.iter() {
         if key.any_pressed(keys.clone()) {
             actions.pressed.push(action.clone());
         }

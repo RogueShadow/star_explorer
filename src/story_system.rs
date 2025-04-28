@@ -1,12 +1,110 @@
-use std::collections::HashSet;
 use bevy::prelude::*;
 use serde::Deserialize;
+use std::collections::HashSet;
+use crate::solar_system::{SolarBody};
+use crate::space_position::SpacePosition;
 
 pub struct StoryPlugin;
 impl Plugin for StoryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameState>();
+        app.add_systems(Startup,setup);
+        app.add_systems(Update,handle_story);
     }
+}
+
+#[derive(Component)]
+pub struct StoryDebug;
+
+#[derive(Debug)]
+pub struct Hail {
+    pub origin: SpacePosition,
+    pub range: f32,
+}
+impl Hail {
+    pub fn new(origin: SpacePosition, range: f32) -> Self {
+        Self { origin, range }
+    }
+}
+
+fn setup(
+    mut commands: Commands,
+) {
+    commands.spawn((
+        StoryDebug,
+        Text2d("".to_string()),
+        Transform::from_xyz(-128.0, -128.0, 1.0),
+    ));
+}
+
+fn handle_story(
+    mut game_state: ResMut<GameState>,
+    dialogues: Query<(&SolarBody,&Dialogue,&SpacePosition)>,
+    mut text: Single<&mut Text2d,With<StoryDebug>>,
+) {
+    if let Some(hail) = game_state.hail.as_mut() {
+        let mut bodies = dialogues
+            .iter()
+            .map(|(body, comm_messages, SpacePosition(body_pos))| {
+                let distance = hail.origin.0.distance(*body_pos);
+                (distance, body.name.clone(), comm_messages)
+            })
+            .filter(|(distance, _, _)| {
+                *distance <= hail.range
+            })
+            .collect::<Vec<_>>();
+        bodies.sort_by(|(d1, _, _), (d2, _, _)| d1.total_cmp(d2));
+
+        if let Some((distance, body, dialogue)) = bodies.first() {
+            if game_state.active_node.is_none() {
+                game_state.active_node = Some(dialogue.entry.clone());
+            }
+            let message = dialogue.get_text(game_state.active_node.as_ref().unwrap(), &game_state);
+            let choices = dialogue.get_choices(game_state.active_node.as_ref().unwrap(), &game_state);
+            game_state.message = message.map(|m| m.text.clone());
+            game_state.hail = None;
+            game_state.active_dialogue = Some(dialogue.clone_self());
+
+            text.0 = message.unwrap().text.clone();
+            text.0.push_str("\n");
+            for choice in choices.iter() {
+                text.0.push_str(choice.text.as_str());
+                text.0.push_str("\n");
+            }
+            game_state.choices = Some(choices);
+            println!("{:?}",game_state.flags);
+        }
+    }
+    if game_state.choose.is_some() && game_state.choices.is_some() {
+        let dialogue = game_state.active_dialogue.clone().unwrap();
+        let choices = game_state.choices.clone().unwrap();
+        let choice = game_state.choose.unwrap();
+        let choice = &choices[choice];
+        game_state.active_node = Some(choice.next.clone());
+
+
+
+        game_state.choose = None;
+        game_state.choices = None;
+
+        text.0 = game_state.message.clone().unwrap();
+        text.0.push_str("\n");
+        for choice in choices.iter() {
+            text.0.push_str(choice.text.as_str());
+            text.0.push_str("\n");
+        }
+        println!("{:?}",game_state.flags);
+        
+        for action in choice.clone().actions.unwrap().iter() {
+            perform_action(action, &mut game_state);
+        }
+
+        game_state.message = Some(dialogue.get_text(game_state.active_node.as_ref().unwrap(), &game_state).unwrap().text.clone());
+
+    } else {
+        game_state.choose = None;
+    }
+
 }
 
 #[derive(Deserialize, Debug, Component, Clone)]
@@ -33,26 +131,36 @@ pub struct Choice {
     pub condition: Option<String>,
     pub actions: Option<Vec<String>>,
 }
-#[derive(Deserialize, Debug, Resource)]
+#[derive(Debug, Resource)]
 pub struct GameState {
     pub flags: HashSet<String>,
     pub active_node: Option<String>,
+    pub active_dialogue: Option<Dialogue>,
+    pub hail: Option<Hail>,
+    pub message: Option<String>,
+    pub choices: Option<Vec<Choice>>,
+    pub choose: Option<usize>,
 }
 impl FromWorld for GameState {
     fn from_world(_world: &mut World) -> Self {
         GameState {
             flags: HashSet::new(),
             active_node: None,
+            active_dialogue: None,
+            hail: None,
+            message: None,
+            choices: None,
+            choose: None,
         }
     }
 }
 
 impl GameState {
-    fn new() -> Self {
-        GameState {
-            flags: HashSet::new(),
-            active_node: None,
-        }
+    pub fn send_hail(&mut self, origin: SpacePosition, range: f32) {
+        self.hail = Some(Hail::new(origin,range));
+    }
+    pub fn choose(&mut self, choice: usize) {
+        self.choose = Some(choice);
     }
 }
 
@@ -75,7 +183,7 @@ impl Dialogue {
     }
 
     // Get the available choices for a node based on the current game state
-    pub fn get_choices(&self, node_id: &str, state: &GameState) -> Vec<&Choice> {
+    pub fn get_choices(&self, node_id: &str, state: &GameState) -> Vec<Choice> {
         self.nodes
             .iter()
             .find(|n| n.id == node_id)
@@ -86,7 +194,7 @@ impl Dialogue {
                         c.condition
                             .as_ref()
                             .map_or(true, |cond| check_condition(cond, state))
-                    })
+                    }).map(|c| c.clone())
                     .collect()
             })
             .unwrap_or_default()
@@ -101,6 +209,10 @@ impl Dialogue {
                 }
             }
         }
+    }
+
+    fn clone_self(&self) -> Self {
+        self.clone()
     }
 }
 
@@ -131,4 +243,3 @@ pub fn perform_action(action: &str, state: &mut GameState) {
         println!("Invalid action format: {}", action);
     }
 }
-

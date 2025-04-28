@@ -1,15 +1,15 @@
-use bevy::math::{Quat, Vec2, Vec3};
-use bevy::prelude::*;
 use crate::background_stars::BackgroundStarConfig;
-use crate::GameActions;
-use crate::input_actions::{ActionState};
+use crate::input_actions::ActionState;
 use crate::space_position::SpacePosition;
+use crate::GameActions;
+use bevy::math::{Quat, Vec2};
+use bevy::prelude::*;
 
 pub struct PlayerShipPlugin;
 
 impl Plugin for PlayerShipPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update,move_ship);
+        app.add_systems(Update, move_ship);
     }
 }
 
