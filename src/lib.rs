@@ -10,7 +10,7 @@ mod player_ship;
 mod story_system;
 
 use crate::input_actions::ActionState;
-use crate::story_system::{GameState, StoryPlugin};
+use crate::story_system::{ActiveDialogue, Dialogue, GameState, StoryPlugin};
 use background_stars::BackgroundStarsPlugin;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -151,27 +151,49 @@ pub enum GameActions {
 }
 
 fn handle_input(
+    mut commands: Commands,
+    mut active_dialogue: ResMut<ActiveDialogue>,
     mut app_exit: EventWriter<AppExit>,
     mut game_state: ResMut<GameState>,
     game_actions: Res<ActionState<GameActions>>,
     ship_position: Single<&SpacePosition,With<MyShip>>,
+    query_dialogues: Query<(&Dialogue, &SpacePosition)>,
 ) {
     if game_actions.just_pressed(GameActions::Exit) {
         app_exit.send(AppExit::Success);
     }
     if game_actions.just_pressed(GameActions::Hail) {
-        game_state.send_hail(ship_position.clone(),2048.0);
+        
+        // find closet Dialogue to ship.
+        let mut dialogues = query_dialogues
+            .iter()
+            .map(|(dialogue,pos)| (dialogue,pos.0.distance(ship_position.0)))
+            .collect::<Vec<_>>();
+        dialogues.sort_by(|(_,a),(_,b)| a.partial_cmp(b).unwrap());
+        
+        if !dialogues.is_empty() {
+            let new_dialogue = dialogues.first().unwrap();
+            let new_dialogue = new_dialogue.0;
+
+            // set nearest dialogue to active. Remove old one.
+            active_dialogue.dialogue = Some(new_dialogue.clone());
+            active_dialogue.node_id = "start".to_string();
+            println!("{:?}",new_dialogue);
+        } else {
+            active_dialogue.dialogue = None;
+        }
+        
     }
     if game_actions.just_pressed(GameActions::Choose1) {
-        game_state.choose(0);
+
     }
     if game_actions.just_pressed(GameActions::Choose2) {
-        game_state.choose(1);
+
     }
     if game_actions.just_pressed(GameActions::Choose3) {
-        game_state.choose(2);
+ 
     }
     if game_actions.just_pressed(GameActions::Choose4) {
-        game_state.choose(3);
+
     }
 }

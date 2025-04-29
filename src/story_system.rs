@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use serde::Deserialize;
 use std::collections::HashSet;
+use std::fmt::Debug;
 use crate::solar_system::{SolarBody};
 use crate::space_position::SpacePosition;
 
@@ -8,6 +9,8 @@ pub struct StoryPlugin;
 impl Plugin for StoryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GameState>();
+        app.init_resource::<GameFlags>();
+        app.init_resource::<ActiveDialogue>();
         app.add_systems(Startup,setup);
         app.add_systems(Update,handle_story);
     }
@@ -15,17 +18,6 @@ impl Plugin for StoryPlugin {
 
 #[derive(Component)]
 pub struct StoryDebug;
-
-#[derive(Debug)]
-pub struct Hail {
-    pub origin: SpacePosition,
-    pub range: f32,
-}
-impl Hail {
-    pub fn new(origin: SpacePosition, range: f32) -> Self {
-        Self { origin, range }
-    }
-}
 
 fn setup(
     mut commands: Commands,
@@ -39,72 +31,15 @@ fn setup(
 
 fn handle_story(
     mut game_state: ResMut<GameState>,
-    dialogues: Query<(&SolarBody,&Dialogue,&SpacePosition)>,
+    mut flags: ResMut<GameFlags>,
+    mut active_dialogue: ResMut<ActiveDialogue>,
     mut text: Single<&mut Text2d,With<StoryDebug>>,
 ) {
-    if let Some(hail) = game_state.hail.as_mut() {
-        let mut bodies = dialogues
-            .iter()
-            .map(|(body, comm_messages, SpacePosition(body_pos))| {
-                let distance = hail.origin.0.distance(*body_pos);
-                (distance, body.name.clone(), comm_messages)
-            })
-            .filter(|(distance, _, _)| {
-                *distance <= hail.range
-            })
-            .collect::<Vec<_>>();
-        bodies.sort_by(|(d1, _, _), (d2, _, _)| d1.total_cmp(d2));
-
-        if let Some((distance, body, dialogue)) = bodies.first() {
-            if game_state.active_node.is_none() {
-                game_state.active_node = Some(dialogue.entry.clone());
-            }
-            let message = dialogue.get_text(game_state.active_node.as_ref().unwrap(), &game_state);
-            let choices = dialogue.get_choices(game_state.active_node.as_ref().unwrap(), &game_state);
-            game_state.message = message.map(|m| m.text.clone());
-            game_state.hail = None;
-            game_state.active_dialogue = Some(dialogue.clone_self());
-
-            text.0 = message.unwrap().text.clone();
-            text.0.push_str("\n");
-            for choice in choices.iter() {
-                text.0.push_str(choice.text.as_str());
-                text.0.push_str("\n");
-            }
-            game_state.choices = Some(choices);
-            println!("{:?}",game_state.flags);
+    if let Some(dialogue) = &active_dialogue.dialogue {
+        if let Some(msg) = dialogue.get_text(&active_dialogue.node_id, &flags) {
+            text.0 = msg.text.clone();
         }
     }
-    if game_state.choose.is_some() && game_state.choices.is_some() {
-        let dialogue = game_state.active_dialogue.clone().unwrap();
-        let choices = game_state.choices.clone().unwrap();
-        let choice = game_state.choose.unwrap();
-        let choice = &choices[choice];
-        game_state.active_node = Some(choice.next.clone());
-
-
-
-        game_state.choose = None;
-        game_state.choices = None;
-
-        text.0 = game_state.message.clone().unwrap();
-        text.0.push_str("\n");
-        for choice in choices.iter() {
-            text.0.push_str(choice.text.as_str());
-            text.0.push_str("\n");
-        }
-        println!("{:?}",game_state.flags);
-        
-        for action in choice.clone().actions.unwrap().iter() {
-            perform_action(action, &mut game_state);
-        }
-
-        game_state.message = Some(dialogue.get_text(game_state.active_node.as_ref().unwrap(), &game_state).unwrap().text.clone());
-
-    } else {
-        game_state.choose = None;
-    }
-
 }
 
 #[derive(Deserialize, Debug, Component, Clone)]
@@ -133,40 +68,34 @@ pub struct Choice {
 }
 #[derive(Debug, Resource)]
 pub struct GameState {
-    pub flags: HashSet<String>,
-    pub active_node: Option<String>,
-    pub active_dialogue: Option<Dialogue>,
-    pub hail: Option<Hail>,
-    pub message: Option<String>,
-    pub choices: Option<Vec<Choice>>,
-    pub choose: Option<usize>,
+    pub hail: bool,
 }
-impl FromWorld for GameState {
-    fn from_world(_world: &mut World) -> Self {
-        GameState {
-            flags: HashSet::new(),
-            active_node: None,
-            active_dialogue: None,
-            hail: None,
-            message: None,
-            choices: None,
-            choose: None,
+#[derive(Resource)]
+pub struct ActiveDialogue {
+    pub dialogue: Option<Dialogue>,
+    pub node_id: String,
+}
+
+impl FromWorld for ActiveDialogue {
+    fn from_world(world: &mut World) -> Self {
+        ActiveDialogue {
+            dialogue: None,
+            node_id: "".to_string(),
         }
     }
 }
 
-impl GameState {
-    pub fn send_hail(&mut self, origin: SpacePosition, range: f32) {
-        self.hail = Some(Hail::new(origin,range));
-    }
-    pub fn choose(&mut self, choice: usize) {
-        self.choose = Some(choice);
+impl FromWorld for GameState {
+    fn from_world(_world: &mut World) -> Self {
+        GameState {
+            hail: false,       
+        }
     }
 }
 
 impl Dialogue {
     // Get the text for a node based on the current game state
-    pub fn get_text(&self, node_id: &str, state: &GameState) -> Option<&Text> {
+    pub fn get_text(&self, node_id: &str, flags: &GameFlags) -> Option<&Text> {
         self.nodes
             .iter()
             .find(|n| n.id == node_id)
@@ -176,14 +105,14 @@ impl Dialogue {
                     .find(|t| {
                         t.condition
                             .as_ref()
-                            .map_or(true, |c| check_condition(c, state))
+                            .map_or(true, |c| flags.contains(c))
                     })
                     .or_else(|| node.texts.last())
             })
     }
 
     // Get the available choices for a node based on the current game state
-    pub fn get_choices(&self, node_id: &str, state: &GameState) -> Vec<Choice> {
+    pub fn get_choices(&self, node_id: &str, flags: &GameFlags) -> Vec<Choice> {
         self.nodes
             .iter()
             .find(|n| n.id == node_id)
@@ -193,7 +122,7 @@ impl Dialogue {
                     .filter(|c| {
                         c.condition
                             .as_ref()
-                            .map_or(true, |cond| check_condition(cond, state))
+                            .map_or(true, |cond| flags.contains(cond))
                     }).map(|c| c.clone())
                     .collect()
             })
@@ -201,11 +130,11 @@ impl Dialogue {
     }
 
     // Apply on_enter actions for a node, modifying the game state
-    fn apply_on_enter(&self, node_id: &str, state: &mut GameState) {
+    fn apply_on_enter(&self, node_id: &str, flags: &mut GameFlags) {
         if let Some(node) = self.nodes.iter().find(|n| n.id == node_id) {
             if let Some(actions) = &node.on_enter {
                 for action in actions {
-                    perform_action(action, state);
+                    perform_action(action, flags);
                 }
             }
         }
@@ -216,26 +145,43 @@ impl Dialogue {
     }
 }
 
-// Check if a condition is true based on the current state
-pub fn check_condition(condition: &str, state: &GameState) -> bool {
-    if condition.starts_with('!') {
-        let flag = &condition[1..];
-        !state.flags.contains(flag)
-    } else {
-        state.flags.contains(condition)
+#[derive(Resource)]
+pub struct GameFlags(HashSet<String>);
+
+impl Debug for GameFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }   
+}
+
+impl Default for GameFlags {
+    fn default() -> Self {
+        Self(HashSet::new())
+    }
+}
+
+impl GameFlags {
+    pub fn set(&mut self, flag: &str) {
+        self.0.insert(flag.to_string());
+    }
+    pub fn remove(&mut self, flag: &str) {
+        self.0.remove(flag);
+    }
+    pub fn contains(&self, flag: &str) -> bool {
+        self.0.contains(flag)
     }
 }
 
 // Perform an action to modify the game state
-pub fn perform_action(action: &str, state: &mut GameState) {
+pub fn perform_action(action: &str, state: &mut GameFlags) {
     let parts: Vec<&str> = action.split(':').collect();
     if parts.len() == 2 {
         match parts[0] {
             "set_flag" => {
-                state.flags.insert(parts[1].to_string());
+                state.set(parts[1]);
             }
             "remove_flag" => {
-                state.flags.remove(parts[1]);
+                state.remove(parts[1]);
             }
             _ => println!("Unknown action: {}", action),
         }

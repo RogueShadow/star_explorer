@@ -89,7 +89,7 @@ pub fn load_solar_system(
                 .as_str(),
         )
         .expect("Couldn't form the Dialogue");
-        println!("Loaded dialogue for {}\n {:?}", &config.name, &dialogue);
+        //println!("Loaded dialogue for {}\n {:?}", &config.name, &dialogue);
         commands.entity(entity).insert(dialogue);
     }
     match (config.tint, config.image.clone()) {

@@ -1,10 +1,4 @@
-use crate::input_actions::ActionState;
-use crate::player_ship::MyShip;
-use crate::solar_system::SolarBody;
-use crate::space_position::SpacePosition;
-use crate::story_system::{Dialogue, GameState};
-use crate::GameActions;
-use bevy::app::AppExit;
+
 use bevy::asset::Assets;
 use bevy::color::Color;
 use bevy::prelude::*;
@@ -17,7 +11,6 @@ impl Plugin for CommunicationsSystemPlugin {
         app.insert_resource(CommunicationWindow::default());
         app.add_systems(Startup, setup_window);
         app.add_systems(Update, update_window);
-        app.add_systems(Update, communications);
     }
 }
 
@@ -140,58 +133,3 @@ fn update_window(
     text.0 = comm_ui.messages.clone();
 }
 
-fn communications(
-    mut commands: Commands,
-    actions: Res<ActionState<GameActions>>,
-    mut app_exit: EventWriter<AppExit>,
-    mut comm_ui: ResMut<CommunicationWindow>,
-    comm_window: Query<Entity, With<CommUI>>,
-    comm_bodies: Query<(&SolarBody, &Dialogue, &SpacePosition), With<Dialogue>>,
-    ship: Query<&SpacePosition, With<MyShip>>,
-    state: ResMut<GameState>,
-) {
-    if actions.pressed(GameActions::Exit) {
-        app_exit.send(AppExit::Success);
-    }
-    if actions.just_pressed(GameActions::ToggleCommsWindow) {
-        comm_ui.show = !comm_ui.show;
-    }
-    if comm_ui.show {
-        if let Ok(e) = comm_window.get_single() {
-            commands.entity(e).insert(Visibility::Visible);
-        }
-    } else {
-        if let Ok(e) = comm_window.get_single() {
-            commands.entity(e).insert(Visibility::Hidden);
-        }
-    }
-    if actions.just_pressed(GameActions::Hail) {
-        let ship_position = ship.single().0;
-        let mut bodies = comm_bodies
-            .iter()
-            .map(|(body, comm_messages, SpacePosition(body_pos))| {
-                let distance = ship_position.distance(*body_pos);
-                (distance, body.name.clone(), comm_messages)
-            })
-            .collect::<Vec<_>>();
-        bodies.sort_by(|(d1, _, _), (d2, _, _)| d1.total_cmp(d2));
-        if !bodies.is_empty() {
-            if let Some((_, name, dialogue)) = bodies.first() {
-                let current_node = if let Some(node_id) = state.active_node.clone() {
-                    node_id
-                } else {
-                    "start".to_string()
-                };
-                let text = dialogue
-                    .get_text(&current_node, &*state)
-                    .expect("Couldn't get state");
-                let choices = dialogue.get_choices(&current_node, &*state);
-                comm_ui.send(name.as_str(), &format!("{:?}", text.text));
-                let labels = vec!["a", "b", "c", "d", "e"];
-                for (index, choice) in choices.iter().enumerate() {
-                    comm_ui.send(labels.get(index).expect("char"), choice.text.as_str());
-                }
-            }
-        }
-    }
-}
