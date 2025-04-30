@@ -110,7 +110,14 @@
           "text": "See you later."
         }
       ],
-      "choices": [],
+      "choices": [
+        {
+          "text": "Let's start over...",
+          "next": "start",
+          "condition": null,
+          "actions": []
+        }
+      ],
       "on_enter": []
     }
   ]

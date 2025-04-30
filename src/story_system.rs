@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use serde::Deserialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use crate::solar_system::{SolarBody};
 use crate::space_position::SpacePosition;
@@ -35,11 +35,25 @@ fn handle_story(
     mut active_dialogue: ResMut<ActiveDialogue>,
     mut text: Single<&mut Text2d,With<StoryDebug>>,
 ) {
+    let mut choices = None;
+    text.0.clear();
     if let Some(dialogue) = &active_dialogue.dialogue {
-        if let Some(msg) = dialogue.get_text(&active_dialogue.node_id, &flags) {
-            text.0 = msg.text.clone();
+        dialogue.apply_on_enter(&active_dialogue.node_id(), &mut flags);
+        choices = Some(dialogue.get_choices(&active_dialogue.node_id(), &mut flags));
+        if let Some(msg) = dialogue.get_text(&active_dialogue.node_id(), &flags) {
+            text.0.push_str(&msg.text);
+            text.0.push_str("\n");
         }
     }
+    active_dialogue.choices = choices;
+    if let Some(choices) = &active_dialogue.choices {
+        text.0.push_str("--------\n");
+        for choice in choices.iter() {
+            text.0.push_str(&choice.text);
+            text.0.push_str("\n");
+        }
+    }
+    text.0.push_str(format!("{:?}",flags).as_str());
 }
 
 #[derive(Deserialize, Debug, Component, Clone)]
@@ -73,14 +87,30 @@ pub struct GameState {
 #[derive(Resource)]
 pub struct ActiveDialogue {
     pub dialogue: Option<Dialogue>,
-    pub node_id: String,
+    pub choices: Option<Vec<Choice>>,
+    pub entity: Option<Entity>,
+    pub node_id: HashMap<Entity, String>,
+}
+impl ActiveDialogue {
+    pub fn node_id(&self) -> String {
+        if self.entity.is_none() {
+            "start".to_string()
+        } else {
+            self.node_id.get(&self.entity.unwrap()).unwrap_or(&"start".to_string()).clone()
+        }
+    }
+    pub fn set_node_id(&mut self, node_id: &str) {
+        self.node_id.insert(self.entity.unwrap(), node_id.to_string());
+    }
 }
 
 impl FromWorld for ActiveDialogue {
     fn from_world(world: &mut World) -> Self {
         ActiveDialogue {
             dialogue: None,
-            node_id: "".to_string(),
+            choices: None,
+            entity: None,
+            node_id: HashMap::new(),
         }
     }
 }
@@ -105,7 +135,7 @@ impl Dialogue {
                     .find(|t| {
                         t.condition
                             .as_ref()
-                            .map_or(true, |c| flags.contains(c))
+                            .map_or(true, |c| flags.check(c))
                     })
                     .or_else(|| node.texts.last())
             })
@@ -122,8 +152,9 @@ impl Dialogue {
                     .filter(|c| {
                         c.condition
                             .as_ref()
-                            .map_or(true, |cond| flags.contains(cond))
-                    }).map(|c| c.clone())
+                            .map_or(true, |cond| flags.check(cond))
+                    })
+                    .map(|c| c.clone())
                     .collect()
             })
             .unwrap_or_default()
@@ -167,11 +198,20 @@ impl GameFlags {
     pub fn remove(&mut self, flag: &str) {
         self.0.remove(flag);
     }
-    pub fn contains(&self, flag: &str) -> bool {
-        self.0.contains(flag)
+    pub fn check(&self, flag: &str) -> bool {
+        if flag.starts_with("!") {
+            !self.0.contains(flag.trim_start_matches('!'))
+        } else {
+            self.0.contains(flag)
+        }
     }
 }
 
+pub fn perform_actions(actions: &[String], state: &mut GameFlags) {
+    for action in actions {
+        perform_action(action, state);
+    }
+}
 // Perform an action to modify the game state
 pub fn perform_action(action: &str, state: &mut GameFlags) {
     let parts: Vec<&str> = action.split(':').collect();

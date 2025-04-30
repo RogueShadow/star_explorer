@@ -10,7 +10,7 @@ mod player_ship;
 mod story_system;
 
 use crate::input_actions::ActionState;
-use crate::story_system::{ActiveDialogue, Dialogue, GameState, StoryPlugin};
+use crate::story_system::{perform_action, perform_actions, ActiveDialogue, Dialogue, GameFlags, GameState, StoryPlugin};
 use background_stars::BackgroundStarsPlugin;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -153,11 +153,12 @@ pub enum GameActions {
 fn handle_input(
     mut commands: Commands,
     mut active_dialogue: ResMut<ActiveDialogue>,
+    mut flags: ResMut<GameFlags>,
     mut app_exit: EventWriter<AppExit>,
     mut game_state: ResMut<GameState>,
     game_actions: Res<ActionState<GameActions>>,
     ship_position: Single<&SpacePosition,With<MyShip>>,
-    query_dialogues: Query<(&Dialogue, &SpacePosition)>,
+    query_dialogues: Query<(Entity,&Dialogue, &SpacePosition)>,
 ) {
     if game_actions.just_pressed(GameActions::Exit) {
         app_exit.send(AppExit::Success);
@@ -167,33 +168,59 @@ fn handle_input(
         // find closet Dialogue to ship.
         let mut dialogues = query_dialogues
             .iter()
-            .map(|(dialogue,pos)| (dialogue,pos.0.distance(ship_position.0)))
+            .map(|(e,dialogue,pos)| (e,dialogue,pos.0.distance(ship_position.0)))
             .collect::<Vec<_>>();
-        dialogues.sort_by(|(_,a),(_,b)| a.partial_cmp(b).unwrap());
+        dialogues.sort_by(|(_,_,a),(_,_,b)| a.partial_cmp(b).unwrap());
         
         if !dialogues.is_empty() {
             let new_dialogue = dialogues.first().unwrap();
-            let new_dialogue = new_dialogue.0;
+            let new_entity = new_dialogue.0;
+            let new_dialogue = new_dialogue.1;
 
             // set nearest dialogue to active. Remove old one.
             active_dialogue.dialogue = Some(new_dialogue.clone());
-            active_dialogue.node_id = "start".to_string();
+            active_dialogue.entity = Some(new_entity);
             println!("{:?}",new_dialogue);
         } else {
             active_dialogue.dialogue = None;
         }
         
     }
-    if game_actions.just_pressed(GameActions::Choose1) {
-
-    }
-    if game_actions.just_pressed(GameActions::Choose2) {
-
-    }
-    if game_actions.just_pressed(GameActions::Choose3) {
- 
-    }
-    if game_actions.just_pressed(GameActions::Choose4) {
-
+    let choices = active_dialogue.choices.clone();
+    if let Some(choices) = choices {
+        if game_actions.just_pressed(GameActions::Choose1) {
+            if choices.len() > 0 {
+                let choice = choices.get(0).unwrap();
+                active_dialogue.set_node_id(&choice.next);
+                if let Some(action) = choice.actions.as_ref() {
+                    perform_actions(action, &mut flags);
+                }
+            }
+        }
+        if game_actions.just_pressed(GameActions::Choose2) {
+            if choices.len() > 1 {
+                let choice = choices.get(1).unwrap();
+                active_dialogue.set_node_id(&choice.next);
+                if let Some(action) = choice.actions.as_ref() {
+                    perform_actions(action, &mut flags);
+                }
+            }
+        }
+        if game_actions.just_pressed(GameActions::Choose3) {
+            if choices.len() > 2 {
+                let choice = choices.get(2).unwrap();
+                active_dialogue.set_node_id(&choice.next);                if let Some(action) = choice.actions.as_ref() {
+                    perform_actions(action, &mut flags);
+                }
+            }
+        }
+        if game_actions.just_pressed(GameActions::Choose4) {
+            if choices.len() > 3 {
+                let choice = choices.get(3).unwrap();
+                active_dialogue.set_node_id(&choice.next);                if let Some(action) = choice.actions.as_ref() {
+                    perform_actions(action, &mut flags);
+                }
+            }
+        }
     }
 }

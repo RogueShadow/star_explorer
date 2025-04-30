@@ -1,0 +1,45 @@
+{
+  "entry": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "texts": [
+        {
+          "condition": "has_package",
+          "text": "Is that our package you have there?"
+        },
+        {
+          "condition": null,
+          "text": "We've been waiting for a package forever..."
+        }
+      ],
+      "choices": [
+        {
+          "text": "Deliver Package",
+          "next": "thank_delivery",
+          "condition": "has_package",
+          "actions": ["set_flag:has_delivered","remove_flag:has_package"]
+        },
+        {
+          "text": "Goodbye.",
+          "next": "start",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "thank_delivery",
+      "texts": [
+        {
+          "condition": "has_delivered",
+          "text": "Thank you for the package!"
+        }
+      ],
+      "choices": [
+
+      ]
+    }
+    ]
+}
