@@ -6,38 +6,44 @@
       "texts": [
         {
           "condition": "has_delivered",
-          "text": "Ah, you've delivered the package! Here's your reward."
+          "text": "Well, look at you, the cosmic courier! \nPackage delivered, eh? Your rewards waiting."
         },
         {
           "condition": "has_job",
-          "text": "Have you delivered the package yet?"
+          "text": "Oi, wheres that package? Mars isnt *that* far, you know! Delivered it yet?"
         },
         {
           "condition": null,
-          "text": "Hello, I have a job for you. Deliver this package to Mars."
+          "text": "Hey, you! Got a nose for adventure? \nI need a reliable runner to haul a package to Mars. Interested?"
         }
       ],
       "choices": [
         {
-          "text": "What job?",
+          "text": "Tell me about this job.",
           "next": "job_details",
           "condition": "!has_job",
           "actions": []
         },
         {
-          "text": "Yes, I have.",
+          "text": "Yes, its delivered!",
           "next": "confirm_delivery",
           "condition": "has_job && has_delivered",
           "actions": []
         },
         {
-          "text": "Not yet.",
+          "text": "Not yet, still working on it.",
           "next": "not_yet",
           "condition": "has_job && !has_delivered",
           "actions": []
         },
         {
-          "text": "Goodbye.",
+          "text": "Whats in the package?",
+          "next": "package_details",
+          "condition": "!has_job",
+          "actions": []
+        },
+        {
+          "text": "Gotta jet. Bye!",
           "next": "end",
           "condition": null,
           "actions": []
@@ -50,18 +56,72 @@
       "texts": [
         {
           "condition": null,
-          "text": "I need you to deliver a package to Mars."
+          "text": "Its simple: take this package to Mars, hand it to the contact at Red Rock Outpost. \nNo detours, no snooping. Got it?"
         }
       ],
       "choices": [
         {
-          "text": "I'll do it.",
+          "text": "Im in! Gimme the package.",
           "next": "accept_job",
           "condition": null,
           "actions": ["set_flag:has_job", "set_flag:has_package"]
         },
         {
-          "text": "No thanks.",
+          "text": "Whats the pay like?",
+          "next": "negotiate_pay",
+          "condition": null,
+          "actions": []
+        },
+        {
+          "text": "Sounds shady. Im out.",
+          "next": "end",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "package_details",
+      "texts": [
+        {
+          "condition": null,
+          "text": "Nosy, huh? Its just… scientific equipment. Fragile stuff for Martian research. \nNothing you need to worry about. Want the job or not?"
+        }
+      ],
+      "choices": [
+        {
+          "text": "Fine, Ill take it.",
+          "next": "accept_job",
+          "condition": null,
+          "actions": ["set_flag:has_job", "set_flag:has_package"]
+        },
+        {
+          "text": "Too vague. Pass.",
+          "next": "end",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "negotiate_pay",
+      "texts": [
+        {
+          "condition": null,
+          "text": "Hmph, driving a hard bargain? Standard rates 500 credits, plus fuel. \nTake a bonus if you deliver in 24 hours. Deal?"
+        }
+      ],
+      "choices": [
+        {
+          "text": "Deal. Im on it.",
+          "next": "accept_job",
+          "condition": null,
+          "actions": ["set_flag:has_job", "set_flag:has_package"]
+        },
+        {
+          "text": "Not worth my time. Bye.",
           "next": "end",
           "condition": null,
           "actions": []
@@ -74,10 +134,17 @@
       "texts": [
         {
           "condition": null,
-          "text": "Great! Here's the package. Safe travels!"
+          "text": "Atta kid! Heres the package—sealed tight. \nDont drop it, and dont let those Martian dust storms slow you down!"
         }
       ],
-      "choices": [],
+      "choices": [
+        {
+          "text": "On my way!",
+          "next": "end",
+          "condition": null,
+          "actions": []
+        }
+      ],
       "on_enter": []
     },
     {
@@ -85,10 +152,17 @@
       "texts": [
         {
           "condition": null,
-          "text": "Excellent work! Here's your reward."
+          "text": "Nailed it! The Martians are happy, and Im not yelling. \nHeres your 500 credits—spend ‘em wisely."
         }
       ],
-      "choices": [],
+      "choices": [
+        {
+          "text": "Thanks! Any more jobs?",
+          "next": "start",
+          "condition": null,
+          "actions": []
+        }
+      ],
       "on_enter": ["remove_flag:has_job", "remove_flag:has_delivered"]
     },
     {
@@ -96,10 +170,17 @@
       "texts": [
         {
           "condition": null,
-          "text": "Please hurry. The package is important."
+          "text": "Whats the holdup? That package isnt gonna deliver itself, \nand Im not paying for excuses. Get to Mars!"
         }
       ],
-      "choices": [],
+      "choices": [
+        {
+          "text": "Im on it, relax.",
+          "next": "end",
+          "condition": null,
+          "actions": []
+        }
+      ],
       "on_enter": []
     },
     {
@@ -107,12 +188,12 @@
       "texts": [
         {
           "condition": null,
-          "text": "See you later."
+          "text": "Catch you later, spacer. Dont get lost in the asteroid belt."
         }
       ],
       "choices": [
         {
-          "text": "Let's start over...",
+          "text": "Lets start over...",
           "next": "start",
           "condition": null,
           "actions": []

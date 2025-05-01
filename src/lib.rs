@@ -180,7 +180,7 @@ fn handle_input(
             // set nearest dialogue to active. Remove old one.
             active_dialogue.dialogue = Some(new_dialogue.clone());
             active_dialogue.entity = Some(new_entity);
-            println!("{:?}",new_dialogue);
+
         } else {
             active_dialogue.dialogue = None;
         }

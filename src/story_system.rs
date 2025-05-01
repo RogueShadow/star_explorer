@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use bevy::sprite::Anchor;
 use crate::solar_system::{SolarBody};
 use crate::space_position::SpacePosition;
 
@@ -25,12 +26,12 @@ fn setup(
     commands.spawn((
         StoryDebug,
         Text2d("".to_string()),
-        Transform::from_xyz(-128.0, -128.0, 1.0),
+        Transform::from_xyz(0.0, -300.0, 1.0),
+        Anchor::BottomCenter,
     ));
 }
 
 fn handle_story(
-    mut game_state: ResMut<GameState>,
     mut flags: ResMut<GameFlags>,
     mut active_dialogue: ResMut<ActiveDialogue>,
     mut text: Single<&mut Text2d,With<StoryDebug>>,
@@ -53,7 +54,7 @@ fn handle_story(
             text.0.push_str("\n");
         }
     }
-    text.0.push_str(format!("{:?}",flags).as_str());
+    text.0.push_str(format!("\n\n---flags---\n{:?}",flags.0).as_str());
 }
 
 #[derive(Deserialize, Debug, Component, Clone)]
@@ -124,24 +125,12 @@ impl FromWorld for GameState {
 }
 
 impl Dialogue {
-    // Get the text for a node based on the current game state
     pub fn get_text(&self, node_id: &str, flags: &GameFlags) -> Option<&Text> {
-        self.nodes
-            .iter()
-            .find(|n| n.id == node_id)
-            .and_then(|node| {
-                node.texts
-                    .iter()
-                    .find(|t| {
-                        t.condition
-                            .as_ref()
-                            .map_or(true, |c| flags.check(c))
-                    })
-                    .or_else(|| node.texts.last())
-            })
+        self.nodes.iter().find(|n| n.id == node_id).and_then(|node| {
+            node.texts.iter().find(|t| flags.check(t.condition.as_deref()))
+        })
     }
 
-    // Get the available choices for a node based on the current game state
     pub fn get_choices(&self, node_id: &str, flags: &GameFlags) -> Vec<Choice> {
         self.nodes
             .iter()
@@ -150,11 +139,11 @@ impl Dialogue {
                 node.choices
                     .iter()
                     .filter(|c| {
-                        c.condition
-                            .as_ref()
-                            .map_or(true, |cond| flags.check(cond))
+                        let condition = c.condition.as_deref();
+                        let result = flags.check(condition);
+                        result
                     })
-                    .map(|c| c.clone())
+                    .cloned()
                     .collect()
             })
             .unwrap_or_default()
@@ -198,11 +187,49 @@ impl GameFlags {
     pub fn remove(&mut self, flag: &str) {
         self.0.remove(flag);
     }
-    pub fn check(&self, flag: &str) -> bool {
-        if flag.starts_with("!") {
-            !self.0.contains(flag.trim_start_matches('!'))
-        } else {
+    fn check(&self, condition: Option<&str>) -> bool {
+        let condition_str = condition.unwrap_or("");
+        if condition_str.trim().is_empty() {
+            return true;
+        }
+        let tokens = tokenize_condition(condition_str);
+        if tokens.is_empty() {
+            return true;
+        }
+        let mut index = 0;
+        self.parse_or(&tokens, &mut index)
+    }
+
+    fn parse_or(&self, tokens: &[String], index: &mut usize) -> bool {
+        let mut result = self.parse_and(tokens, index);
+        while *index < tokens.len() && tokens[*index] == "||" {
+            *index += 1;
+            let right = self.parse_and(tokens, index);
+            result |= right;
+        }
+        result
+    }
+
+    fn parse_and(&self, tokens: &[String], index: &mut usize) -> bool {
+        let mut result = self.parse_unary(tokens, index);
+        while *index < tokens.len() && tokens[*index] == "&&" {
+            *index += 1;
+            let right = self.parse_unary(tokens, index);
+            result &= right;
+        }
+        result
+    }
+
+    fn parse_unary(&self, tokens: &[String], index: &mut usize) -> bool {
+        if *index < tokens.len() && tokens[*index] == "!" {
+            *index += 1;
+            !self.parse_unary(tokens, index)
+        } else if *index < tokens.len() {
+            let flag = &tokens[*index];
+            *index += 1;
             self.0.contains(flag)
+        } else {
+            false
         }
     }
 }
@@ -228,4 +255,72 @@ pub fn perform_action(action: &str, state: &mut GameFlags) {
     } else {
         println!("Invalid action format: {}", action);
     }
+}
+
+fn tokenize_condition(condition: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut chars = condition.chars().peekable();
+
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            '!' => {
+                tokens.push("!".to_string());
+                chars.next();
+            }
+            '&' => {
+                chars.next();
+                if chars.peek() == Some(&'&') {
+                    tokens.push("&&".to_string());
+                    chars.next();
+                } else {
+                    let mut flag = String::new();
+                    flag.push('&');
+                    while let Some(&next_ch) = chars.peek() {
+                        if next_ch.is_alphanumeric() || next_ch == '_' {
+                            flag.push(next_ch);
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                    tokens.push(flag);
+                }
+            }
+            '|' => {
+                chars.next();
+                if chars.peek() == Some(&'|') {
+                    tokens.push("||".to_string());
+                    chars.next();
+                } else {
+                    let mut flag = String::new();
+                    flag.push('|');
+                    while let Some(&next_ch) = chars.peek() {
+                        if next_ch.is_alphanumeric() || next_ch == '_' {
+                            flag.push(next_ch);
+                            chars.next();
+                        } else {
+                            break;
+                        }
+                    }
+                    tokens.push(flag);
+                }
+            }
+            _ if ch.is_alphanumeric() || ch == '_' => {
+                let mut flag = String::new();
+                while let Some(&next_ch) = chars.peek() {
+                    if next_ch.is_alphanumeric() || next_ch == '_' {
+                        flag.push(next_ch);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                tokens.push(flag);
+            }
+            _ => {
+                chars.next(); // Skip whitespace or invalid characters
+            }
+        }
+    }
+    tokens
 }

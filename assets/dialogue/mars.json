@@ -6,22 +6,88 @@
       "texts": [
         {
           "condition": "has_package",
-          "text": "Is that our package you have there?"
+          "text": "Whoa, is that *the* package? \nWe’ve been waiting ages for this! You from Earth?"
         },
         {
           "condition": null,
-          "text": "We've been waiting for a package forever..."
+          "text": "Another Earthling, huh? Got any packages for us? \nBeen expecting something… important."
         }
       ],
       "choices": [
         {
-          "text": "Deliver Package",
-          "next": "thank_delivery",
+          "text": "Here’s your package.",
+          "next": "inspect_package",
           "condition": "has_package",
-          "actions": ["set_flag:has_delivered","remove_flag:has_package"]
+          "actions": []
         },
         {
-          "text": "Goodbye.",
+          "text": "What package?",
+          "next": "no_package",
+          "condition": null,
+          "actions": []
+        },
+        {
+          "text": "Just passing through. Bye.",
+          "next": "start",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "inspect_package",
+      "texts": [
+        {
+          "condition": null,
+          "text": "Lemme check… yep, seals are intact, no cosmic radiation damage. \nLooks good! Ready to hand it over?"
+        }
+      ],
+      "choices": [
+        {
+          "text": "All yours.",
+          "next": "thank_delivery",
+          "condition": null,
+          "actions": ["set_flag:has_delivered", "remove_flag:has_package"]
+        },
+        {
+          "text": "What’s in it, anyway?",
+          "next": "package_curiosity",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "package_curiosity",
+      "texts": [
+        {
+          "condition": null,
+          "text": "Heh, curious one, eh? It’s just boring lab gear—crystals, \nsensors, y’know, science stuff. C’mon, let’s wrap this up."
+        }
+      ],
+      "choices": [
+        {
+          "text": "Fine, take it.",
+          "next": "thank_delivery",
+          "condition": null,
+          "actions": ["set_flag:has_delivered", "remove_flag:has_package"]
+        }
+      ],
+      "on_enter": []
+    },
+    {
+      "id": "no_package",
+      "texts": [
+        {
+          "condition": null,
+          "text": "No package? Ugh, Earth’s logistics are slower than a rover in quicksand. \nCheck back with your boss, yeah?"
+        }
+      ],
+      "choices": [
+        {
+          "text": "I’ll look into it.",
           "next": "start",
           "condition": null,
           "actions": []
@@ -34,12 +100,18 @@
       "texts": [
         {
           "condition": "has_delivered",
-          "text": "Thank you for the package!"
+          "text": "You’re a lifesaver! This package is gonna keep our research humming. \nSafe travels back to Earth, courier!"
         }
       ],
       "choices": [
-
-      ]
+        {
+          "text": "Glad to help. See ya.",
+          "next": "start",
+          "condition": null,
+          "actions": []
+        }
+      ],
+      "on_enter": []
     }
-    ]
+  ]
 }
