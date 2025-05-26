@@ -29,6 +29,7 @@ fn point_at_nearby_bodies(
     mut nav_markers: Query<(Entity, &mut Transform, &NavMarker)>,
     actions: Res<ActionState<GameActions>>,
     mut nav_ui: ResMut<NavigationUI>,
+    asset_server: Res<AssetServer>,
 ) {
     if actions.just_pressed(GameActions::ToggleNavMarkers) {
         nav_ui.show = !nav_ui.show;
@@ -72,6 +73,7 @@ fn point_at_nearby_bodies(
                         Text2d(name.to_owned()),
                         Transform::from_translation(edge_point.extend(10.0)),
                         NavMarker(entity),
+                        TextFont::from_font(asset_server.load("fonts/FiraSans-Regular.ttf")),
                     ));
                 }
             }

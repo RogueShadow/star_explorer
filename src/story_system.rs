@@ -3,8 +3,6 @@ use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use bevy::sprite::Anchor;
-use crate::solar_system::{SolarBody};
-use crate::space_position::SpacePosition;
 
 pub struct StoryPlugin;
 impl Plugin for StoryPlugin {
@@ -22,12 +20,14 @@ pub struct StoryDebug;
 
 fn setup(
     mut commands: Commands,
+    asset_server: ResMut<AssetServer>,
 ) {
     commands.spawn((
         StoryDebug,
         Text2d("".to_string()),
         Transform::from_xyz(0.0, -300.0, 1.0),
         Anchor::BottomCenter,
+        TextFont::from_font(asset_server.load("fonts/FiraSans-Regular.ttf")),
     ));
 }
 
@@ -106,7 +106,7 @@ impl ActiveDialogue {
 }
 
 impl FromWorld for ActiveDialogue {
-    fn from_world(world: &mut World) -> Self {
+    fn from_world(_world: &mut World) -> Self {
         ActiveDialogue {
             dialogue: None,
             choices: None,

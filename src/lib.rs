@@ -186,6 +186,14 @@ fn handle_input(
         }
         
     }
+    if game_actions.just_pressed(GameActions::ToggleCommsWindow) {
+        if active_dialogue.dialogue.is_some() {
+            active_dialogue.set_node_id("start");
+            active_dialogue.dialogue = None;
+            active_dialogue.choices = None;
+            active_dialogue.entity = None;
+        }
+    }
     let choices = active_dialogue.choices.clone();
     if let Some(choices) = choices {
         if game_actions.just_pressed(GameActions::Choose1) {
