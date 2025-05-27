@@ -10,7 +10,9 @@ mod player_ship;
 mod story_system;
 
 use crate::input_actions::ActionState;
-use crate::story_system::{perform_action, perform_actions, ActiveDialogue, Dialogue, GameFlags, GameState, StoryPlugin};
+use crate::story_system::{
+    ActiveDialogue, Dialogue, GameFlags, GameState, StoryPlugin, perform_action, perform_actions,
+};
 use background_stars::BackgroundStarsPlugin;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -58,14 +60,14 @@ impl Plugin for StarExplorer {
         app.add_plugins(FrameTimeDiagnosticsPlugin::default());
         app.add_plugins(BackgroundStarsPlugin::new(200));
         app.add_plugins(NavigationSystemPlugin);
-        //app.add_plugins(CommunicationsSystemPlugin);
+        app.add_plugins(CommunicationsSystemPlugin);
         app.add_plugins(SpacePositionPlugin);
         app.add_plugins(GameActionsPlugin::<GameActions>::default());
         app.add_plugins(SolarSystemPlugin);
         app.add_plugins(PlayerShipPlugin);
         app.add_plugins(StoryPlugin);
         app.add_systems(Startup, startup);
-        app.add_systems(Update, (fps_update,handle_input));
+        app.add_systems(Update, (fps_update, handle_input));
     }
 }
 
@@ -157,45 +159,35 @@ fn handle_input(
     mut app_exit: EventWriter<AppExit>,
     mut game_state: ResMut<GameState>,
     game_actions: Res<ActionState<GameActions>>,
-    ship_position: Single<&SpacePosition,With<MyShip>>,
-    query_dialogues: Query<(Entity,&Dialogue, &SpacePosition)>,
+    ship_position: Single<&SpacePosition, With<MyShip>>,
+    query_dialogues: Query<(Entity, &Dialogue, &SpacePosition)>,
 ) {
     if game_actions.just_pressed(GameActions::Exit) {
         app_exit.send(AppExit::Success);
     }
     if game_actions.just_pressed(GameActions::Hail) {
-        
         // find closet Dialogue to ship.
         let mut dialogues = query_dialogues
             .iter()
-            .map(|(e,dialogue,pos)| (e,dialogue,pos.0.distance(ship_position.0)))
+            .map(|(e, dialogue, pos)| (e, dialogue, pos.0.distance(ship_position.0)))
             .collect::<Vec<_>>();
-        dialogues.sort_by(|(_,_,a),(_,_,b)| a.partial_cmp(b).unwrap());
-        
+        dialogues.sort_by(|(_, _, a), (_, _, b)| a.partial_cmp(b).unwrap());
+
         if !dialogues.is_empty() {
             let new_dialogue = dialogues.first().unwrap();
             let new_entity = new_dialogue.0;
             let new_dialogue = new_dialogue.1;
 
-            // set nearest dialogue to active. Remove old one.
-            active_dialogue.dialogue = Some(new_dialogue.clone());
-            active_dialogue.entity = Some(new_entity);
-
+            // set nearest dialogue to active.
+            active_dialogue.set_active(new_dialogue, new_entity);
         } else {
-            active_dialogue.dialogue = None;
+            active_dialogue.clear();
         }
-        
     }
     if game_actions.just_pressed(GameActions::ToggleCommsWindow) {
-        if active_dialogue.dialogue.is_some() {
-            active_dialogue.set_node_id("start");
-            active_dialogue.dialogue = None;
-            active_dialogue.choices = None;
-            active_dialogue.entity = None;
-        }
+        active_dialogue.clear();
     }
-    let choices = active_dialogue.choices.clone();
-    if let Some(choices) = choices {
+    if let Some(choices) = active_dialogue.get_choices(&flags) {
         if game_actions.just_pressed(GameActions::Choose1) {
             if choices.len() > 0 {
                 let choice = choices.get(0).unwrap();
@@ -217,7 +209,8 @@ fn handle_input(
         if game_actions.just_pressed(GameActions::Choose3) {
             if choices.len() > 2 {
                 let choice = choices.get(2).unwrap();
-                active_dialogue.set_node_id(&choice.next);                if let Some(action) = choice.actions.as_ref() {
+                active_dialogue.set_node_id(&choice.next);
+                if let Some(action) = choice.actions.as_ref() {
                     perform_actions(action, &mut flags);
                 }
             }
@@ -225,10 +218,26 @@ fn handle_input(
         if game_actions.just_pressed(GameActions::Choose4) {
             if choices.len() > 3 {
                 let choice = choices.get(3).unwrap();
-                active_dialogue.set_node_id(&choice.next);                if let Some(action) = choice.actions.as_ref() {
+                active_dialogue.set_node_id(&choice.next);
+                if let Some(action) = choice.actions.as_ref() {
                     perform_actions(action, &mut flags);
                 }
             }
         }
     }
+}
+
+pub fn draw_patch(cmd: &mut Commands, image_handle: Handle<Image>, position: Vec2, size: Vec2) {
+    cmd.spawn((
+        Transform::from_xyz(position.x, position.y, 100.0),
+        Sprite {
+            image: image_handle,
+            custom_size: Some(size),
+            image_mode: SpriteImageMode::Sliced(TextureSlicer {
+                border: BorderRect::square(32.0),
+                ..default()
+            }),
+            ..default()
+        },
+    ));
 }

@@ -40,9 +40,7 @@ pub struct Notification {
     message: String,
 }
 
-fn notification_system(
-    mut notifications: ResMut<Notifications>,
-) {
+fn notification_system(mut notifications: ResMut<Notifications>) {
     if notifications.has_next() {
         notifications.next();
     }

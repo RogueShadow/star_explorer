@@ -1,6 +1,6 @@
+use crate::GameActions;
 use crate::input_actions::ActionState;
 use crate::solar_system::SolarBody;
-use crate::GameActions;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 use std::collections::HashMap;

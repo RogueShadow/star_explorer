@@ -1,8 +1,8 @@
 use bevy::prelude::*;
+use bevy::sprite::Anchor;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
-use bevy::sprite::Anchor;
 
 pub struct StoryPlugin;
 impl Plugin for StoryPlugin {
@@ -10,18 +10,15 @@ impl Plugin for StoryPlugin {
         app.init_resource::<GameState>();
         app.init_resource::<GameFlags>();
         app.init_resource::<ActiveDialogue>();
-        app.add_systems(Startup,setup);
-        app.add_systems(Update,handle_story);
+        app.add_systems(Startup, setup);
+        app.add_systems(Update, handle_story);
     }
 }
 
 #[derive(Component)]
 pub struct StoryDebug;
 
-fn setup(
-    mut commands: Commands,
-    asset_server: ResMut<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands.spawn((
         StoryDebug,
         Text2d("".to_string()),
@@ -33,28 +30,27 @@ fn setup(
 
 fn handle_story(
     mut flags: ResMut<GameFlags>,
-    mut active_dialogue: ResMut<ActiveDialogue>,
-    mut text: Single<&mut Text2d,With<StoryDebug>>,
+    active_dialogue: ResMut<ActiveDialogue>,
+    mut text: Single<&mut Text2d, With<StoryDebug>>,
 ) {
-    let mut choices = None;
     text.0.clear();
     if let Some(dialogue) = &active_dialogue.dialogue {
         dialogue.apply_on_enter(&active_dialogue.node_id(), &mut flags);
-        choices = Some(dialogue.get_choices(&active_dialogue.node_id(), &mut flags));
-        if let Some(msg) = dialogue.get_text(&active_dialogue.node_id(), &flags) {
-            text.0.push_str(&msg.text);
-            text.0.push_str("\n");
-        }
+        // let message = active_dialogue.get_message(&flags);
+        // if let Some(msg) = message {
+        //     text.0.push_str(msg);
+        //     text.0.push_str("\n");
+        // }
     }
-    active_dialogue.choices = choices;
-    if let Some(choices) = &active_dialogue.choices {
-        text.0.push_str("--------\n");
-        for choice in choices.iter() {
-            text.0.push_str(&choice.text);
-            text.0.push_str("\n");
-        }
-    }
-    text.0.push_str(format!("\n\n---flags---\n{:?}",flags.0).as_str());
+    // if let Some(choices) = &active_dialogue.get_choices(&flags) {
+    //     text.0.push_str("--------\n");
+    //     for choice in choices.iter() {
+    //         text.0.push_str(&choice.text);
+    //         text.0.push_str("\n");
+    //     }
+    // }
+    text.0
+        .push_str(format!("\n\n---flags---\n{:?}", flags.0).as_str());
 }
 
 #[derive(Deserialize, Debug, Component, Clone)]
@@ -93,15 +89,58 @@ pub struct ActiveDialogue {
     pub node_id: HashMap<Entity, String>,
 }
 impl ActiveDialogue {
+    pub fn set_active(&mut self, dialogue: &Dialogue, entity: Entity) {
+        self.dialogue = Some(dialogue.clone_self());
+        self.entity = Some(entity);
+        self.node_id.insert(entity, "start".to_string());
+    }
+    pub fn clear(&mut self) {
+        if self.entity.is_some() {
+            self.node_id
+                .insert(self.entity.unwrap(), "start".to_string());
+        }
+        self.dialogue = None;
+        self.entity = None;
+        self.choices = None;
+    }
     pub fn node_id(&self) -> String {
         if self.entity.is_none() {
             "start".to_string()
         } else {
-            self.node_id.get(&self.entity.unwrap()).unwrap_or(&"start".to_string()).clone()
+            self.node_id
+                .get(&self.entity.unwrap())
+                .unwrap_or(&"start".to_string())
+                .clone()
         }
     }
     pub fn set_node_id(&mut self, node_id: &str) {
-        self.node_id.insert(self.entity.unwrap(), node_id.to_string());
+        self.node_id
+            .insert(self.entity.unwrap(), node_id.to_string());
+    }
+    pub fn get_message(&self, flags: &GameFlags) -> Option<&str> {
+        if self.dialogue.is_none() {
+            None
+        } else {
+            Some(
+                &self
+                    .dialogue
+                    .as_ref()
+                    .unwrap()
+                    .get_text(&self.node_id(), flags)
+                    .unwrap()
+                    .text,
+            )
+        }
+    }
+    pub fn get_choices(&self, flags: &GameFlags) -> Option<Vec<Choice>> {
+        if self.dialogue.is_none() {
+            None
+        } else {
+            self.dialogue
+                .as_ref()
+                .unwrap()
+                .get_choices(&self.node_id(), flags)
+        }
     }
 }
 
@@ -118,35 +157,34 @@ impl FromWorld for ActiveDialogue {
 
 impl FromWorld for GameState {
     fn from_world(_world: &mut World) -> Self {
-        GameState {
-            hail: false,       
-        }
+        GameState { hail: false }
     }
 }
 
 impl Dialogue {
     pub fn get_text(&self, node_id: &str, flags: &GameFlags) -> Option<&Text> {
-        self.nodes.iter().find(|n| n.id == node_id).and_then(|node| {
-            node.texts.iter().find(|t| flags.check(t.condition.as_deref()))
-        })
-    }
-
-    pub fn get_choices(&self, node_id: &str, flags: &GameFlags) -> Vec<Choice> {
         self.nodes
             .iter()
             .find(|n| n.id == node_id)
-            .map(|node| {
-                node.choices
+            .and_then(|node| {
+                node.texts
                     .iter()
-                    .filter(|c| {
-                        let condition = c.condition.as_deref();
-                        let result = flags.check(condition);
-                        result
-                    })
-                    .cloned()
-                    .collect()
+                    .find(|t| flags.check(t.condition.as_deref()))
             })
-            .unwrap_or_default()
+    }
+
+    pub fn get_choices(&self, node_id: &str, flags: &GameFlags) -> Option<Vec<Choice>> {
+        self.nodes.iter().find(|n| n.id == node_id).map(|node| {
+            node.choices
+                .iter()
+                .filter(|c| {
+                    let condition = c.condition.as_deref();
+                    let result = flags.check(condition);
+                    result
+                })
+                .cloned()
+                .collect()
+        })
     }
 
     // Apply on_enter actions for a node, modifying the game state
@@ -171,7 +209,7 @@ pub struct GameFlags(HashSet<String>);
 impl Debug for GameFlags {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.0)
-    }   
+    }
 }
 
 impl Default for GameFlags {

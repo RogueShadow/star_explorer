@@ -1,7 +1,7 @@
+use crate::GameActions;
 use crate::background_stars::BackgroundStarConfig;
 use crate::input_actions::ActionState;
 use crate::space_position::SpacePosition;
-use crate::GameActions;
 use bevy::math::{Quat, Vec2};
 use bevy::prelude::*;
 
